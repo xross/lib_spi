@@ -7,6 +7,7 @@
 #include <print.h>
 #include <platform.h>
 
+#if 0
 /* These ports are used for the SPI master */
 #ifdef XCORE_AI_EXPLORER
 out buffered port:32   p_sclk  = WIFI_CLK;
@@ -34,7 +35,7 @@ void app(client spi_master_if spi)
     uint8_t val;
     printstrln("Sending SPI traffic");
 #if XCORE_AI_EXPLORER
-    
+
     p_rstn <: 0x2; //Take out of reset and wait
     delay_microseconds(1000);
     spi.begin_transaction(0, 1000, SPI_MODE_1);
@@ -127,12 +128,12 @@ void async_app(client spi_master_async_if spi)
     spi.shutdown();
 }
 
-#if 1
+#if 0
 int main(void) {
-  interface spi_master_if i_spi[1];
+  interface spi_master_if i_spi;
   par {
-    on tile[0]: app(i_spi[0]);
-    on tile[0]: spi_master(i_spi, 1,
+    on tile[0]: app(i_spi);
+    on tile[0]: spi_master_single_client(i_spi,
                            p_sclk, p_mosi, p_miso, p_ss, 1,
                            null);
   }
@@ -157,4 +158,5 @@ int main(void) {
   }
   return 0;
 }
+#endif
 #endif
