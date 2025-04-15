@@ -101,6 +101,15 @@ void spi_master(server interface spi_master_if i[num_clients],
         static const size_t num_slaves,
         clock ?clk);
 
+[[distributable]]
+void spi_master_single_client(server interface spi_master_if i,
+        out buffered port:32 sclk,
+        out buffered port:32 ?mosi,
+        in buffered port:32 ?miso,
+        out port p_ss[num_slaves],
+        static const size_t num_slaves,
+        clock ?clk);
+
 /** Asynchronous interface to an SPI component.
  *
  *  This interface allows programs to offload SPI bus transfers to another

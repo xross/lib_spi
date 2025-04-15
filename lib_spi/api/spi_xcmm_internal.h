@@ -12,24 +12,6 @@ enum spi_transport_remote_tag_t
     SPI_TAG_TRANSFER32,
 };
 
-/* Declare underlying API */
-/* This is normal 'OO in C' code */
-typedef struct
-{
-    unsigned selected_device;
-    unsigned cpol;
-    unsigned cpha;
-    unsigned period;
-    unsigned accepting_new_transactions;
-    unsigned num_slaves;
-    port_t p_sclk;
-    port_t p_mosi;
-    port_t p_miso;
-    port_t *p_ss;
-} spi_ctx_t;
-
-
-
 /* xccm_server_implementaiton.c */
 void spi_init(spi_ctx_t *, port_t p_sclk, port_t p_mosi, port_t p_miso, port_t p_ss[], const size_t num_slaves);
 

@@ -10,6 +10,8 @@
 
 #include "spi_xcmm.h" // main lib_spi API include
 
+#define NUM_SLAVES (1)
+
 port_t p_sclk  = WIFI_CLK;
 port_t p_ss[1] = {WIFI_CS_N};
 port_t p_miso  = WIFI_MISO;
@@ -29,7 +31,8 @@ void spi_client(const spi_client_t *spi)
 
     uint32_t addr = 0;
     uint32_t command = 0x8002 | (addr << 12); //Read command
-    while(1)
+
+    // while(1)
     {
         uint8_t val = spi_client_transfer8(spi, command >> 8);
         val = spi_client_transfer8(spi, command & 0xff);
@@ -43,18 +46,34 @@ void spi_client(const spi_client_t *spi)
 DECLARE_JOB(spi_server, (remote_link_t, port_t, port_t, port_t, port_t *, const size_t));
 DECLARE_JOB(spi_client, (const spi_client_t *));
 
+#define REMOTE
+
 int main(void)
 {
-    channel_t api_chan = chan_alloc();
     spi_client_t client;
+#if defined(REMOTE)
+    /* Remote */
+    channel_t api_chan = chan_alloc();
     spi_remote_client_init(&client, api_chan.end_a);
 
     PAR_JOBS(
-        PJOB(spi_server, (api_chan.end_b, p_sclk, p_mosi, p_miso, p_ss, 1)),
+        PJOB(spi_server, (api_chan.end_b, p_sclk, p_mosi, p_miso, p_ss, NUM_SLAVES)),
         PJOB(spi_client, (&client))
     );
 
     chan_free(api_chan);
+#else
+    /* Distributed */
+    spi_ctx_t spi_ctx;
+    spi_distributed_client_init(&client, &spi_ctx);
+
+    /* Do we want to call this in spi_distributed_client_init()? */
+    spi_init(&spi_ctx, p_sclk, p_mosi, p_miso, p_ss, NUM_SLAVES);
+
+    spi_client(&client);
+
+#endif
+
     return 0;
 }
 

@@ -46,6 +46,26 @@ void spi_server(remote_link_t c,
 
 void spi_remote_client_init(spi_client_t *, remote_link_t);
 
+/*** Below are extra items we need for distributed */
+
+/* Declare underlying API */
+/* This is normal 'OO in C' code */
+typedef struct
+{
+    unsigned selected_device;
+    unsigned cpol;
+    unsigned cpha;
+    unsigned period;
+    unsigned accepting_new_transactions;
+    unsigned num_slaves;
+    port_t p_sclk;
+    port_t p_mosi;
+    port_t p_miso;
+    port_t *p_ss;
+} spi_ctx_t;
+
+void spi_init(spi_ctx_t *, port_t p_sclk, port_t p_mosi, port_t p_miso, port_t p_ss[], const size_t num_slaves);
+
 /* Transport - distributed */
-//void distributed_client_init_spi(spi_client_t *, simple_api_ctx_t *);
+void spi_distributed_client_init(spi_client_t *, spi_ctx_t *);
 
