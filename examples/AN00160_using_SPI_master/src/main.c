@@ -57,6 +57,7 @@ int main(void)
     spi_remote_client_init(&client, api_chan.end_a);
 
     PAR_JOBS(
+        /* Note, calls spi_init() */
         PJOB(spi_server, (api_chan.end_b, p_sclk, p_mosi, p_miso, p_ss, NUM_SLAVES)),
         PJOB(spi_client, (&client))
     );
