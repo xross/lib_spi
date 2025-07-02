@@ -6,7 +6,10 @@ set(APP_HW_TARGET       XK-EVK-XU316)
 
 set(APP_DEPENDENT_MODULES   "lib_spi" "lib_xcmm" "lib_xassert")
 
-set(APP_COMPILER_FLAGS      -O3 -g -report -DXCORE_AI_EXPLORER=1)
+set(SHARED_COMPILER_FLAGS         -O3 -g -report -DXCORE_AI_EXPLORER=1)
+
+set(APP_COMPILER_FLAGS_remote           ${SHARED_COMPILER_FLAGS} -DREMOTE=1)
+set(APP_COMPILER_FLAGS_distributed      ${SHARED_COMPILER_FLAGS} -DREMOTE=0)
 
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 

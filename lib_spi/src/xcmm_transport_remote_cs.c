@@ -1,6 +1,8 @@
 #include "spi_xcmm_internal.h"
 #include "transport_remote_utils.h"
 
+
+#if 0
 __attribute__((fptrgroup("client.spi_begin_transaction"))) static void spi_remote_begin_transaction(void *ctx,
         unsigned device_index, unsigned speed_in_khz, spi_mode_t mode)
 {
@@ -51,3 +53,5 @@ void spi_remote_client_init(spi_client_t *client, remote_link_t t)
     client->vt = &spi_vtable_remote;
     client->ctx = (uintptr_t)t;
 }
+
+#endif

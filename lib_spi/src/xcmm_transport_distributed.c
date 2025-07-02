@@ -1,4 +1,6 @@
 
+#if 0
+
 #include "spi_xcmm_internal.h"
 
 __attribute__((fptrgroup("client.spi_begin_transaction"))) static void spi_distributed_begin_transaction(void *ctx,
@@ -39,3 +41,4 @@ void spi_distributed_client_init(spi_client_t *client, spi_ctx_t *ctx)
     /* Do we want to call spi_init() here? */
 }
 
+#endif

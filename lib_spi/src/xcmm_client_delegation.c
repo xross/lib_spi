@@ -1,5 +1,6 @@
 #include "spi_xcmm_internal.h"
 
+#if 0
 void spi_client_begin_transaction(const spi_client_t *c,
         unsigned device_index, unsigned speed_in_khz, spi_mode_t mode)
 {
@@ -20,3 +21,4 @@ uint32_t spi_client_transfer32(const spi_client_t *c, uint32_t data)
 {
     return c->vt->spi_transfer32((void *)(c->ctx), data);
 }
+#endif

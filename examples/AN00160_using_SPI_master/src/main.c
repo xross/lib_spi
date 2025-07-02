@@ -8,7 +8,7 @@
 #include <xcore/channel.h>
 #include <xcore/hwtimer.h>
 
-#include "spi_xcmm.h" // main lib_spi API include
+#include "spi_xcmm_transport.h" // main lib_spi API include. Will evenually be "spi.h"
 
 #define NUM_SLAVES (1)
 
@@ -18,8 +18,11 @@ port_t p_miso  = WIFI_MISO;
 port_t p_mosi  = WIFI_MOSI;
 port_t p_rstn  = WIFI_WUP_RST_N;
 
-void spi_client(const spi_client_t *spi)
+void spi_client(spi_client_t spi)
 {
+    uint32_t addr = 0;
+    uint32_t command = 0x8002 | (addr << 12); //Read command
+
     port_enable(p_rstn);
     port_out(p_rstn, 0x2); //Take out of reset and wait
 
@@ -27,54 +30,64 @@ void spi_client(const spi_client_t *spi)
     t = hwtimer_alloc();
     hwtimer_delay(t, 200000);
 
-    spi_client_begin_transaction(spi, 0, 1000, SPI_MODE_1);
-
-    uint32_t addr = 0;
-    uint32_t command = 0x8002 | (addr << 12); //Read command
-
-    // while(1)
+    for(int i = 0; i < 10000000; i++)
     {
+        spi_client_begin_transaction(spi, 0, 1000, SPI_MODE_1);
+
         uint8_t val = spi_client_transfer8(spi, command >> 8);
+
         val = spi_client_transfer8(spi, command & 0xff);
-        uint32_t reg;
-        reg = spi_client_transfer32(spi, 0x00);
+        uint32_t reg = spi_client_transfer32(spi, 0x00);
+
         spi_client_end_transaction(spi, 0);
+
         printhexln(reg << 16 | reg >> 16);
+
+        hwtimer_delay(t, 200000);
     }
 }
 
-DECLARE_JOB(spi_server, (remote_link_t, port_t, port_t, port_t, port_t *, const size_t));
-DECLARE_JOB(spi_client, (const spi_client_t *));
 
-#define REMOTE
+DECLARE_JOB(spi_server_remote, (spi_server_t, port_t, port_t, port_t, port_t *, const size_t));
+DECLARE_JOB(spi_client, (spi_client_t));
+
 
 int main(void)
 {
-    spi_client_t client;
-#if defined(REMOTE)
+    xm_os_enable_for_all_cores();
+    struct xm_os_control_block cb;
+    xm_os_init(&cb);
+#if (REMOTE)
     /* Remote */
-    channel_t api_chan = chan_alloc();
-    spi_remote_client_init(&client, api_chan.end_a);
+    printstrln("Remote");
+    chanend_t api_chan = chanend_alloc();
+
+    spi_server_t srv = { (void *) api_chan };
+
+    struct rxc_client cli_storage = { (void *)api_chan, NULL, &rxc_transport_remote_shared.cvt };
+    spi_client_t cli = &cli_storage;
 
     PAR_JOBS(
-        /* Note, calls spi_init() */
-        PJOB(spi_server, (api_chan.end_b, p_sclk, p_mosi, p_miso, p_ss, NUM_SLAVES)),
-        PJOB(spi_client, (&client))
-    );
+        PJOB(spi_client, (cli)),
+        PJOB(spi_server_remote, (srv, p_sclk, p_mosi, p_miso, p_ss, NUM_SLAVES))
+        );
 
-    chan_free(api_chan);
+    //chanend_free(api_chan);
 #else
-    /* Distributed */
-    spi_ctx_t spi_ctx;
-    spi_distributed_client_init(&client, &spi_ctx);
+    printstrln("Distributed");
+    long long unsigned server_stack[128+1];
+    struct rxc_shared_server *srv_ctx = alloca(RXC_SHARED_SERVER_SIZE(1));
 
-    /* Do we want to call this in spi_distributed_client_init()? */
-    spi_init(&spi_ctx, p_sclk, p_mosi, p_miso, p_ss, NUM_SLAVES);
+    rxc_init_shared_server(srv_ctx, 1, spi_server_distributed, &server_stack[127]);
+    spi_server_t srv = { &srv_ctx->clients[0] };
+    struct rxc_client cli_storage = { srv_ctx, &srv_ctx->clients[0], &rxc_transport_distributed_shared_with_client_exclusion.cvt };
+    spi_client_t cli = &cli_storage;
 
-    spi_client(&client);
-
+    xm_os_start_shared_context(&srv_ctx->sctx, &srv);
+    spi_client(cli);
 #endif
 
+    xm_os_fini();
     return 0;
 }
 

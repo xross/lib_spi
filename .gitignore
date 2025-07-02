@@ -17,6 +17,8 @@
 Installs/*
 test_results.csv
 .*.swp
+.*.swo
+.*.swn
 
 # waf build files
 .lock-waf_*
