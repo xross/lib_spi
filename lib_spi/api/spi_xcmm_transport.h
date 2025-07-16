@@ -5,6 +5,17 @@
 
 #include "transport.h"
 
+typedef struct spi_server_params_t
+{
+    port_t p_sclk;
+    port_t p_mosi;
+    port_t p_miso;
+    port_t *p_ss;
+    size_t num_slaves;
+} spi_server_params_t;
+
+
+
 /** This type indicates what mode an SPI component should use */
 typedef enum spi_mode_t {
   SPI_MODE_0, /**< SPI Mode 0 - Polarity = 0, Clock Edge = 1 */
@@ -16,6 +27,13 @@ typedef enum spi_mode_t {
 typedef struct rxc_server spi_server_t;
 typedef struct rxc_client *spi_client_t;
 
+/* Wrapper for server parameters to be used in distributed mode */
+typedef struct spi_server_wrapper_t
+{
+    spi_server_t *srv;
+    spi_server_params_t *params;
+} spi_server_wrapper_t;
+
 /* Client/API consumer functions */
 void spi_client_begin_transaction(spi_client_t, unsigned device_index, unsigned speed_in_khz, spi_mode_t mode);
 void spi_client_end_transaction(spi_client_t, uint32_t ss_deassert_time);
@@ -24,26 +42,16 @@ uint32_t spi_client_transfer32(spi_client_t, uint32_t data);
 
 void spi_server(const struct rxc_server_vt *,
         spi_server_t srv,
-        port_t sclk,
-        port_t mosi,
-        port_t miso,
-        port_t p_ss[],
-        const size_t num_slaves
+        spi_server_params_t params
         );
 
 void spi_server_remote(spi_server_t,
-        port_t sclk,
-        port_t mosi,
-        port_t miso,
-        port_t p_ss[],
-        const size_t num_slaves
+        spi_server_params_t params
         );
 
-void spi_server_distributed(void * d,
-        port_t sclk,
-        port_t mosi,
-        port_t miso,
-        port_t p_ss[],
-        const size_t num_slaves);
+void spi_server_distributed(void * d);
+
+
+
 
 

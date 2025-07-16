@@ -290,7 +290,6 @@ void spi_server_impl(
                 uint8_t rddata;
 
                 struct spi_rbuf_transfer8 buf;
-                struct spi_rbuf_transfer8 buf1;
 
                 vt->get_request_bytes(&srv, req, &buf.req, sizeof(buf.req));
 
@@ -336,25 +335,23 @@ void spi_server_impl(
     }
 }
 
+
+
 void spi_server_remote(spi_server_t srv,
-        port_t sclk,
-        port_t mosi,
-        port_t miso,
-        port_t p_ss[],
-        const size_t num_slaves
-)
+        spi_server_params_t params)
 {
-    spi_server_impl(&rxc_transport_remote_shared.svt, srv, sclk, mosi, miso, p_ss, num_slaves);
+    spi_server_impl(&rxc_transport_remote_shared.svt, srv, params.p_sclk, params.p_mosi, params.p_miso,
+            params.p_ss, params.num_slaves);
 
 }
 
-void spi_server_distributed(void * d,
-        port_t sclk,
-        port_t mosi,
-        port_t miso,
-        port_t p_ss[],
-        const size_t num_slaves)
+void spi_server_distributed(void * d)
 {
-    spi_server_t srv = *(spi_server_t *)d;
-    spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, srv, sclk, mosi, miso, p_ss, num_slaves);
+    //spi_server_t srv = *(spi_server_t *)d;
+    spi_server_wrapper_t w = *(spi_server_wrapper_t *)d;
+    spi_server_t srv = *(w.srv);
+    spi_server_params_t params = *(w.params);
+
+    spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, srv, params.p_sclk,
+        params.p_mosi, params.p_miso, params.p_ss, params.num_slaves);
 }
