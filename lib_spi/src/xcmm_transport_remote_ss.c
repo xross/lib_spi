@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <xcore/port.h>
 #include <xcore/assert.h>
 #include <xcore/hwtimer.h>
@@ -317,7 +318,7 @@ void spi_server_impl(
 #endif
 
                 ss_deassert_time = buf.req.ss_deassert_time;
-                printf("server: client: %d: spi_end_transaction_impl ss_deassert_time(%x)\n", c, ss_deassert_time);
+                printf("server: client: %d: spi_end_transaction_impl ss_deassert_time(%x)\n", c, (unsigned) ss_deassert_time);
 
                 spi_end_transaction_impl(&ctx, ss_deassert_time);
 
@@ -374,11 +375,11 @@ void spi_server_impl(
 #endif
                 wrdata = buf.req.data;
 
-                printf("server: client %d: spi_transfer32 wrdata(%x)\n", c, wrdata);
+                printf("server: client %d: spi_transfer32 wrdata(%x)\n", c, (unsigned) wrdata);
 
                 rddata =  spi_transfer32_impl(&ctx, wrdata);
 
-                printf("server: client %d: spi_transfer32 rddata(%x)\n", c, rddata);
+                printf("server: client %d: spi_transfer32 rddata(%x)\n", c, (unsigned) rddata);
 
                 buf.res.data = rddata;
 #if NUM_CLIENTS > 1
@@ -401,30 +402,36 @@ void spi_server_impl(
 #if NUM_CLIENTS == 1
 void spi_server_remote(spi_server_t srv, spi_server_params_t params)
 {
+    /* Note, num_clients param unused */
     spi_server_impl(&rxc_transport_remote_shared.svt, srv, 1, params.p_sclk,
             params.p_mosi, params.p_miso, params.p_ss, params.num_slaves);
-
 }
 #else
 void spi_server_remote(spi_server_t *srv, size_t num_clients, spi_server_params_t params)
 {
     spi_server_impl(&rxc_transport_remote_shared.svt, srv, num_clients, params.p_sclk,
             params.p_mosi, params.p_miso, params.p_ss, params.num_slaves);
-
 }
 #endif
 
 
-#if !REMOTE
 void spi_server_distributed(void * d)
 {
-    //spi_server_t srv = *(spi_server_t *)d;
+#if NUM_CLIENTS == 1
     spi_server_wrapper_t w = *(spi_server_wrapper_t *)d;
     spi_server_t srv = *(w.srv);
     spi_server_params_t params = *(w.params);
 
-    spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, srv, num_clients, params.p_sclk,
+    /* Note, num_clients param unused */
+    spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, srv, 1, params.p_sclk,
         params.p_mosi, params.p_miso, params.p_ss, params.num_slaves);
-}
+#else
+    spi_server_wrapper_t w = *(spi_server_wrapper_t *)d;
+    struct rxc_server_handle_wrapper *handles = w.srvs;
+    spi_server_params_t params = *(w.params);
 
+    spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, handles->handles, handles->num, params.p_sclk,
+        params.p_mosi, params.p_miso, params.p_ss, params.num_slaves);
 #endif
+
+}

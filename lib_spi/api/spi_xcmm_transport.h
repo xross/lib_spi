@@ -43,7 +43,11 @@ typedef struct rxc_client *spi_client_t;
 /* Wrapper for server parameters to be used in distributed mode */
 typedef struct spi_server_wrapper_t
 {
+#if NUM_CLIENTS == 1
     spi_server_t *srv;
+#else
+    struct rxc_server_handle_wrapper *srvs;
+#endif
     spi_server_params_t *params;
 } spi_server_wrapper_t;
 

@@ -55,24 +55,8 @@ DECLARE_JOB(spi_server_remote, (spi_server_t *, size_t, spi_server_params_t));
 #endif
 DECLARE_JOB(spi_client, (spi_client_t, size_t));
 
-
-int main(void)
+void main_remote(spi_server_params_t params)
 {
-    xm_os_enable_for_all_cores();
-    struct xm_os_control_block cb;
-    xm_os_init(&cb);
-
-    spi_server_params_t params = {
-        .p_sclk = p_sclk,
-        .p_mosi = p_mosi,
-        .p_miso = p_miso,
-        .p_ss = p_ss,
-        .num_slaves = NUM_SLAVES
-    };
-
-
-#if (REMOTE)
-    /* Remote */
     printstrln("Remote");
 
 #if NUM_CLIENTS == 1
@@ -88,7 +72,9 @@ int main(void)
         PJOB(spi_server_remote, (srv, params))
         );
 
-    //chanend_free(api_chan);
+    chanend_free(api_chan);
+    chanend_free((chanend_t)srv.sctx);
+
 #else
     spi_server_t srv[NUM_CLIENTS];
     struct rxc_client client_storage[NUM_CLIENTS];
@@ -99,25 +85,27 @@ int main(void)
         client_storage[i] = (struct rxc_client) { (void *)api_chan, NULL, &rxc_transport_remote_shared.cvt };
     }
 
+    /* Note, NUM_CLIENTS not respected here */
     PAR_JOBS(
         PJOB(spi_client, (&client_storage[0], 0)),
         PJOB(spi_client, (&client_storage[1], 1)),
+        PJOB(spi_client, (&client_storage[2], 2)),
         PJOB(spi_server_remote, (srv, NUM_CLIENTS, params))
         );
 
     for (size_t i = 0; i < NUM_CLIENTS; i++)
         chanend_free((chanend_t)srv[i].sctx);
 #endif
+}
 
-
-#else
-#if 0
-
+void main_distributed(spi_server_params_t params)
+{
     printstrln("Distributed");
     long long unsigned server_stack[128+1];
     struct rxc_shared_server *srv_ctx = alloca(RXC_SHARED_SERVER_SIZE(1));
+    rxc_init_shared_server(srv_ctx, NUM_CLIENTS, spi_server_distributed, &server_stack[127]);
 
-    rxc_init_shared_server(srv_ctx, 1, spi_server_distributed, &server_stack[127]);
+#if NUM_CLIENTS == 1
     spi_server_t srv = { &srv_ctx->clients[0]};
     struct rxc_client cli_storage = { srv_ctx, &srv_ctx->clients[0], &rxc_transport_distributed_shared_with_client_exclusion.cvt };
     spi_client_t cli = &cli_storage;
@@ -125,9 +113,48 @@ int main(void)
     spi_server_wrapper_t d = { &srv, &params};
 
     xm_os_start_shared_context(&srv_ctx->sctx, &d);
-    spi_client(cli);
+    spi_client(cli, 0);
+#else
+    struct rxc_client client_storage[NUM_CLIENTS];
+    spi_server_t server_storage[NUM_CLIENTS];
+    for (size_t i = 0; i < NUM_CLIENTS; i += 1)
+    {
+        client_storage[i] = (struct rxc_client){ srv_ctx, &srv_ctx->clients[i], &rxc_transport_distributed_shared_with_client_exclusion.cvt };
+        server_storage[i] = (spi_server_t){ &srv_ctx->clients[i] };
+    }
+
+    struct rxc_server_handle_wrapper srvs = { NUM_CLIENTS, &server_storage[0] };
+
+    spi_server_wrapper_t d = {&srvs, &params};
+
+    xm_os_start_shared_context(&srv_ctx->sctx, &d);
+
+    /* Note, NUM_CLIENTS not respected here */
+    PAR_JOBS(
+        PJOB(spi_client, (&client_storage[0], 0)),
+        PJOB(spi_client, (&client_storage[1], 1)),
+        PJOB(spi_client, (&client_storage[2], 2)));
 #endif
-#endif
+}
+
+int main(void)
+{
+    xm_os_enable_for_all_cores();
+    struct xm_os_control_block cb;
+    xm_os_init(&cb);
+
+    spi_server_params_t params = {
+        .p_sclk = p_sclk,
+        .p_mosi = p_mosi,
+        .p_miso = p_miso,
+        .p_ss = p_ss,
+        .num_slaves = NUM_SLAVES
+    };
+
+    if(REMOTE)
+        main_remote(params);
+    else
+        main_distributed(params);
 
     xm_os_fini();
     return 0;
