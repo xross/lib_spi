@@ -60,7 +60,6 @@ static void spi_init(
 /* Server implemetations of actual SPI - i.e. pin wiggling etc*/
 static void spi_begin_transaction_impl(spi_ctx_t *ctx, unsigned device_index, unsigned speed_in_khz, spi_mode_t mode)
 {
-    printf("server: spi_begin_transaction_impl(%d, %d, %d)\n", device_index, speed_in_khz, mode);
     get_mode_bits(mode, &ctx->cpol, &ctx->cpha);
 
     xassert(device_index < ctx->num_slaves);
@@ -228,7 +227,13 @@ uint32_t spi_client_transfer32(spi_client_t cli, uint32_t data)
 
 __attribute__((always_inline))
 void spi_server_impl(
-        const struct rxc_server_vt * vt, spi_server_t srv,
+        const struct rxc_server_vt * vt,
+#if NUM_CLIENTS > 1
+        spi_server_t srv[],
+#else
+        spi_server_t srv,
+#endif
+        size_t num_clients,
         port_t p_sclk,
         port_t p_mosi,
         port_t p_miso,
@@ -241,11 +246,23 @@ void spi_server_impl(
     spi_ctx_t ctx;
     spi_init(&ctx, p_sclk, p_mosi, p_miso, p_ss, num_slaves);
 
+#if NUM_CLIENTS > 1
+    const struct rxc_resource_array_descriptor servers = { num_clients, &srv[0] };
+    vt->configure_await(&servers);
+#endif
+
+    // TODO use ctx.accepting_new_transactions
+    int accepting_new_transactions = 1;
+
     while (1)
     {
+        size_t c = 0;
+#if NUM_CLIENTS == 1
         size_t idx;
         rxc_request_handle_t req = rxc_complete_and_await_any(vt, &srv, 1, &idx);
-
+#else
+        rxc_request_handle_t req = vt->complete_and_await(&servers, &c);
+#endif
         switch (vt->get_tag(req))
         {
             // TODO guarded by accepting_new_transactions
@@ -255,17 +272,37 @@ void spi_server_impl(
                 int speed_in_khz = 0;
                 spi_mode_t mode;
 
+                printf("server client %d: accepting: %d\n", c, accepting_new_transactions);
+
                 struct spi_rbuf_begin_transaction buf;
 
+#if NUM_CLIENTS > 1
+                if (!accepting_new_transactions)
+                {
+                    vt->defer_request(&srv[c], req);
+                    continue;
+                }
+                accepting_new_transactions = 0;
+#endif
+
+#if NUM_CLIENTS > 1
+                vt->get_request_bytes(&srv[c], req, &buf.req, sizeof(buf.req));
+#else
                 vt->get_request_bytes(&srv, req, &buf.req, sizeof(buf.req));
+#endif
 
                 device_index = buf.req.device_index;
                 speed_in_khz = buf.req.speed_in_khz;
                 mode = (spi_mode_t)buf.req.mode;
 
+                printf("server: client %d: spi_begin_transaction_impl(%d, %d, %d)\n", c, device_index, speed_in_khz, mode);
                 spi_begin_transaction_impl(&ctx, device_index, speed_in_khz, mode);
 
+#if NUM_CLIENTS > 1
+                vt->set_response_bytes(&srv[c], req, NULL, 0, 0);
+#else
                 vt->set_response_bytes(&srv, req, NULL, 0, 0);
+#endif
                 break;
             }
             case SPI_TAG_END_TRANSACTION:
@@ -273,15 +310,25 @@ void spi_server_impl(
                 uint32_t ss_deassert_time;
 
                 struct spi_rbuf_end_transaction buf;
-
+#if NUM_CLIENTS > 1
+                vt->get_request_bytes(&srv[c], req, &buf.req, sizeof(buf.req));
+#else
                 vt->get_request_bytes(&srv, req, &buf.req, sizeof(buf.req));
+#endif
 
                 ss_deassert_time = buf.req.ss_deassert_time;
-                printf("server: spi_end_transaction_impl ss_deassert_time(%x)\n", ss_deassert_time);
+                printf("server: client: %d: spi_end_transaction_impl ss_deassert_time(%x)\n", c, ss_deassert_time);
 
                 spi_end_transaction_impl(&ctx, ss_deassert_time);
 
+#if NUM_CLIENTS > 1
+                accepting_new_transactions = 1;
+                vt->set_response_bytes(&srv[c], req, NULL, 0, 0);
+#else
                 vt->set_response_bytes(&srv, req, NULL, 0, 0);
+#endif
+
+
                 break;
             }
             case SPI_TAG_TRANSFER8:
@@ -290,20 +337,27 @@ void spi_server_impl(
                 uint8_t rddata;
 
                 struct spi_rbuf_transfer8 buf;
-
+#if NUM_CLIENTS > 1
+                vt->get_request_bytes(&srv[c], req, &buf.req, sizeof(buf.req));
+#else
                 vt->get_request_bytes(&srv, req, &buf.req, sizeof(buf.req));
+#endif
 
                 wrdata = buf.req.data;
 
-                printf("server: spi_transfer8_impl wrdata(%x)\n", wrdata);
+                printf("server: client %d: spi_transfer8 wrdata(%x)\n", c, wrdata);
 
                 rddata =  spi_transfer8_impl(&ctx, wrdata);
 
-                printf("server: spi_transfer8_impl rddata(%x)\n", rddata);
+                printf("server: client %d: spi_transfer8 rddata(%x)\n", c, rddata);
 
                 buf.res.data = rddata;
 
+#if NUM_CLIENTS > 1
+                vt->set_response_bytes(&srv[c], req, &buf, offsetof(struct spi_rbuf_transfer8, res), sizeof(buf.res));
+#else
                 vt->set_response_bytes(&srv, req, &buf, offsetof(struct spi_rbuf_transfer8, res), sizeof(buf.res));
+#endif
                 break;
             }
 
@@ -313,38 +367,55 @@ void spi_server_impl(
                 uint32_t rddata;
 
                 struct spi_rbuf_transfer32 buf;
-
+#if NUM_CLIENTS > 1
+                vt->get_request_bytes(&srv[c], req, &buf.req, sizeof(buf.req));
+#else
                 vt->get_request_bytes(&srv, req, &buf.req, sizeof(buf.req));
-
+#endif
                 wrdata = buf.req.data;
 
-                printf("server: spi_transfer32_impl wrdata(%x)\n", wrdata);
+                printf("server: client %d: spi_transfer32 wrdata(%x)\n", c, wrdata);
 
                 rddata =  spi_transfer32_impl(&ctx, wrdata);
 
-                printf("server: spi_transfer32_impl rddata(%x)\n", rddata);
+                printf("server: client %d: spi_transfer32 rddata(%x)\n", c, rddata);
 
                 buf.res.data = rddata;
-
+#if NUM_CLIENTS > 1
+                vt->set_response_bytes(&srv[c], req, &buf, offsetof(struct spi_rbuf_transfer32, res), sizeof(buf.res));
+#else
                 vt->set_response_bytes(&srv, req, &buf, offsetof(struct spi_rbuf_transfer32, res), sizeof(buf.res));
+#endif
                 break;
             }
             default:
                 xassert(0 && "Bad method tag");
         }
+#if NUM_CLIENTS > 1
+        vt->configure_await(&servers);
+#endif
     }
 }
 
 
-
-void spi_server_remote(spi_server_t srv,
-        spi_server_params_t params)
+#if NUM_CLIENTS == 1
+void spi_server_remote(spi_server_t srv, spi_server_params_t params)
 {
-    spi_server_impl(&rxc_transport_remote_shared.svt, srv, params.p_sclk, params.p_mosi, params.p_miso,
-            params.p_ss, params.num_slaves);
+    spi_server_impl(&rxc_transport_remote_shared.svt, srv, 1, params.p_sclk,
+            params.p_mosi, params.p_miso, params.p_ss, params.num_slaves);
 
 }
+#else
+void spi_server_remote(spi_server_t *srv, size_t num_clients, spi_server_params_t params)
+{
+    spi_server_impl(&rxc_transport_remote_shared.svt, srv, num_clients, params.p_sclk,
+            params.p_mosi, params.p_miso, params.p_ss, params.num_slaves);
 
+}
+#endif
+
+
+#if !REMOTE
 void spi_server_distributed(void * d)
 {
     //spi_server_t srv = *(spi_server_t *)d;
@@ -352,6 +423,8 @@ void spi_server_distributed(void * d)
     spi_server_t srv = *(w.srv);
     spi_server_params_t params = *(w.params);
 
-    spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, srv, params.p_sclk,
+    spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, srv, num_clients, params.p_sclk,
         params.p_mosi, params.p_miso, params.p_ss, params.num_slaves);
 }
+
+#endif

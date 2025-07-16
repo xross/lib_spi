@@ -5,6 +5,19 @@
 
 #include "transport.h"
 
+#ifndef NUM_SLAVES
+#define NUM_SLAVES (1)
+#endif
+
+// TODO build configs for 1 and 3 clients
+#ifndef NUM_CLIENTS
+#define NUM_CLIENTS (3)
+#endif
+
+#if NUM_SLAVES != 1
+#error "NUM_SLAVES must be 1 for now"
+#endif
+
 typedef struct spi_server_params_t
 {
     port_t p_sclk;
@@ -45,9 +58,17 @@ void spi_server(const struct rxc_server_vt *,
         spi_server_params_t params
         );
 
+#if NUM_CLIENTS == 1
 void spi_server_remote(spi_server_t,
         spi_server_params_t params
         );
+#else
+void spi_server_remote(spi_server_t *,
+        size_t num_clients,
+        spi_server_params_t params
+        );
+
+#endif
 
 void spi_server_distributed(void * d);
 

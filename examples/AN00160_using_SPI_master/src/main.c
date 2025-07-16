@@ -10,27 +10,28 @@
 
 #include "spi_xcmm_transport.h" // main lib_spi API include. Will evenually be "spi.h"
 
-#define NUM_SLAVES (1)
-
 port_t p_sclk  = WIFI_CLK;
 port_t p_ss[1] = {WIFI_CS_N};
 port_t p_miso  = WIFI_MISO;
 port_t p_mosi  = WIFI_MOSI;
 port_t p_rstn  = WIFI_WUP_RST_N;
 
-void spi_client(spi_client_t spi)
+void spi_client(spi_client_t spi, size_t n)
 {
     uint32_t addr = 0;
     uint32_t command = 0x8002 | (addr << 12); //Read command
 
-    port_enable(p_rstn);
-    port_out(p_rstn, 0x2); //Take out of reset and wait
+    if (n == 0)
+    {
+        port_enable(p_rstn);
+        port_out(p_rstn, 0x2); //Take out of reset and wait
+    }
 
     hwtimer_t t;
     t = hwtimer_alloc();
-    hwtimer_delay(t, 200000);
+    hwtimer_delay(t, 300000);
 
-    for(int i = 0; i < 10000000; i++)
+    for(int i = 0; i < 2; i++)
     {
         spi_client_begin_transaction(spi, 0, 1000, SPI_MODE_1);
 
@@ -47,9 +48,12 @@ void spi_client(spi_client_t spi)
     }
 }
 
-
+#if NUM_CLIENTS == 1
 DECLARE_JOB(spi_server_remote, (spi_server_t, spi_server_params_t));
-DECLARE_JOB(spi_client, (spi_client_t));
+#else
+DECLARE_JOB(spi_server_remote, (spi_server_t *, size_t, spi_server_params_t));
+#endif
+DECLARE_JOB(spi_client, (spi_client_t, size_t));
 
 
 int main(void)
@@ -70,6 +74,8 @@ int main(void)
 #if (REMOTE)
     /* Remote */
     printstrln("Remote");
+
+#if NUM_CLIENTS == 1
     chanend_t api_chan = chanend_alloc();
 
     spi_server_t srv = { (void *) api_chan };
@@ -84,6 +90,29 @@ int main(void)
 
     //chanend_free(api_chan);
 #else
+    spi_server_t srv[NUM_CLIENTS];
+    struct rxc_client client_storage[NUM_CLIENTS];
+    for (size_t i = 0; i < NUM_CLIENTS; i += 1)
+    {
+        chanend_t api_chan = chanend_alloc();
+        srv[i].sctx = (void *)api_chan;
+        client_storage[i] = (struct rxc_client) { (void *)api_chan, NULL, &rxc_transport_remote_shared.cvt };
+    }
+
+    PAR_JOBS(
+        PJOB(spi_client, (&client_storage[0], 0)),
+        PJOB(spi_client, (&client_storage[1], 1)),
+        PJOB(spi_server_remote, (srv, NUM_CLIENTS, params))
+        );
+
+    for (size_t i = 0; i < NUM_CLIENTS; i++)
+        chanend_free((chanend_t)srv[i].sctx);
+#endif
+
+
+#else
+#if 0
+
     printstrln("Distributed");
     long long unsigned server_stack[128+1];
     struct rxc_shared_server *srv_ctx = alloca(RXC_SHARED_SERVER_SIZE(1));
@@ -97,6 +126,7 @@ int main(void)
 
     xm_os_start_shared_context(&srv_ctx->sctx, &d);
     spi_client(cli);
+#endif
 #endif
 
     xm_os_fini();
