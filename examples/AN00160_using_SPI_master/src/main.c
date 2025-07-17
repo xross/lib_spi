@@ -102,7 +102,7 @@ void main_distributed(spi_server_params_t params)
 {
     printstrln("Distributed");
     long long unsigned server_stack[128+1];
-    struct rxc_shared_server *srv_ctx = alloca(RXC_SHARED_SERVER_SIZE(1));
+    struct rxc_shared_server *srv_ctx = alloca(RXC_SHARED_SERVER_SIZE(NUM_CLIENTS));
     rxc_init_shared_server(srv_ctx, NUM_CLIENTS, spi_server_distributed, &server_stack[127]);
 
 #if NUM_CLIENTS == 1
