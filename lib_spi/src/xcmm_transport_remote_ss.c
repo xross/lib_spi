@@ -266,14 +266,14 @@ void spi_server_impl(
 #endif
         switch (vt->get_tag(req))
         {
-            // TODO guarded by accepting_new_transactions
             case SPI_TAG_BEGIN_TRANSACTION:
             {
                 int device_index = 0;
                 int speed_in_khz = 0;
                 spi_mode_t mode;
 
-                printf("server client %d: accepting: %d\n", c, accepting_new_transactions);
+                xassert(c < NUM_CLIENTS);
+                printf("server client %d: accepting: %d\n", (int) c, accepting_new_transactions);
 
                 struct spi_rbuf_begin_transaction buf;
 

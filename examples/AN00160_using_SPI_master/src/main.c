@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <platform.h>
 
 #include <print.h>
@@ -15,6 +16,13 @@ port_t p_ss[1] = {WIFI_CS_N};
 port_t p_miso  = WIFI_MISO;
 port_t p_mosi  = WIFI_MOSI;
 port_t p_rstn  = WIFI_WUP_RST_N;
+
+#if NUM_CLIENTS == 1
+DECLARE_JOB(spi_server_remote, (spi_server_t, spi_server_params_t));
+#else
+DECLARE_JOB(spi_server_remote, (spi_server_t *, size_t, spi_server_params_t));
+#endif
+DECLARE_JOB(spi_client, (spi_client_t, size_t));
 
 void spi_client(spi_client_t spi, size_t n)
 {
@@ -48,13 +56,6 @@ void spi_client(spi_client_t spi, size_t n)
     }
 }
 
-#if NUM_CLIENTS == 1
-DECLARE_JOB(spi_server_remote, (spi_server_t, spi_server_params_t));
-#else
-DECLARE_JOB(spi_server_remote, (spi_server_t *, size_t, spi_server_params_t));
-#endif
-DECLARE_JOB(spi_client, (spi_client_t, size_t));
-
 void main_remote(spi_server_params_t params)
 {
     printstrln("Remote");
@@ -68,11 +69,10 @@ void main_remote(spi_server_params_t params)
     spi_client_t cli = &cli_storage;
 
     PAR_JOBS(
-        PJOB(spi_client, (cli)),
+        PJOB(spi_client, (cli, 0)),
         PJOB(spi_server_remote, (srv, params))
         );
 
-    chanend_free(api_chan);
     chanend_free((chanend_t)srv.sctx);
 
 #else
