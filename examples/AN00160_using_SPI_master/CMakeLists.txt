@@ -6,7 +6,7 @@ set(APP_HW_TARGET       XK-EVK-XU316)
 
 set(APP_DEPENDENT_MODULES   "lib_spi" "lib_xcmm" "lib_xassert")
 
-set(SHARED_COMPILER_FLAGS         -O3 -g -report -DXCORE_AI_EXPLORER=1 -save-temps)
+set(SHARED_COMPILER_FLAGS         -Os -g -report -DXCORE_AI_EXPLORER=1 -save-temps)
 
 set(APP_COMPILER_FLAGS_remote           ${SHARED_COMPILER_FLAGS} -DREMOTE=1 -DNUM_CLIENTS=1)
 set(APP_COMPILER_FLAGS_remote_3         ${SHARED_COMPILER_FLAGS} -DREMOTE=1 -DNUM_CLIENTS=3)
