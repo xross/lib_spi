@@ -3,13 +3,14 @@
 #include <stdint.h>
 #include <xcore/port.h>
 
+#include "spi_gen.h"
+
 #include "transport.h"
 
 #ifndef NUM_SLAVES
 #define NUM_SLAVES (1)
 #endif
 
-// TODO build configs for 1 and 3 clients
 #ifndef NUM_CLIENTS
 #define NUM_CLIENTS (3)
 #endif
@@ -17,6 +18,13 @@
 #if NUM_SLAVES != 1
 #error "NUM_SLAVES must be 1 for now"
 #endif
+
+// TODO Merge these two structs?
+
+typedef struct
+{
+    spi_server_t srv;
+} spi_server_args_t;
 
 typedef struct spi_server_params_t
 {
@@ -27,8 +35,6 @@ typedef struct spi_server_params_t
     size_t num_slaves;
 } spi_server_params_t;
 
-
-
 /** This type indicates what mode an SPI component should use */
 typedef enum spi_mode_t {
   SPI_MODE_0, /**< SPI Mode 0 - Polarity = 0, Clock Edge = 1 */
@@ -36,6 +42,8 @@ typedef enum spi_mode_t {
   SPI_MODE_2, /**< SPI Mode 2 - Polarity = 1, Clock Edge = 0 */
   SPI_MODE_3, /**< SPI Mode 3 - Polarity = 1, Clock Edge = 1 */
 } spi_mode_t;
+
+#if 0
 
 typedef struct rxc_server spi_server_t;
 typedef struct rxc_client *spi_client_t;
@@ -76,7 +84,7 @@ void spi_server_remote(spi_server_t *,
 
 void spi_server_distributed(void * d);
 
-
+#endif
 
 
 

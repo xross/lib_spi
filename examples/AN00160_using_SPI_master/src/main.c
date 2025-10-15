@@ -20,9 +20,8 @@ port_t p_miso  = WIFI_MISO;
 port_t p_mosi  = WIFI_MOSI;
 port_t p_rstn  = WIFI_WUP_RST_N;
 
-#if 0
 #if NUM_CLIENTS == 1
-DECLARE_JOB(spi_server_remote, (spi_server_t, spi_server_params_t));
+DECLARE_JOB(spi_server_remote, (const spi_server_args_t*, spi_server_params_t*));
 #else
 DECLARE_JOB(spi_server_remote, (spi_server_t *, size_t, spi_server_params_t));
 #endif
@@ -45,14 +44,14 @@ void spi_client(spi_client_t spi, size_t n)
 
     for(int i = 0; i < 2; i++)
     {
-        spi_client_begin_transaction(spi, 0, 1000, SPI_MODE_1);
+        client_spi_begin_transaction(spi, 0, 1000, SPI_MODE_1);
 
-        uint8_t val = spi_client_transfer8(spi, command >> 8);
+        uint8_t val = client_spi_transfer8(spi, command >> 8);
 
-        val = spi_client_transfer8(spi, command & 0xff);
-        uint32_t reg = spi_client_transfer32(spi, 0x00);
+        val = client_spi_transfer8(spi, command & 0xff);
+        uint32_t reg = client_spi_transfer32(spi, 0x00);
 
-        spi_client_end_transaction(spi, 0);
+        client_spi_end_transaction(spi, 0);
 
         printhexln(reg << 16 | reg >> 16);
 
@@ -65,20 +64,17 @@ void main_remote(spi_server_params_t params)
     printstrln("Remote");
 
 #if NUM_CLIENTS == 1
-    chanend_t api_chan = chanend_alloc();
 
-    spi_server_t srv = { (void *) api_chan };
+    spi_link_context_t transport;
 
-    struct rxc_client cli_storage = { (void *)api_chan, NULL, &rxc_transport_remote_shared.cvt };
-    spi_client_t cli = &cli_storage;
+    // Allocates channel
+    spi_handles_t link = spi_remote_link_ctor(&transport);
+    spi_server_args_t args = { link.server };
 
     PAR_JOBS(
-        PJOB(spi_client, (cli, 0)),
-        PJOB(spi_server_remote, (srv, params))
+        PJOB(spi_client, (link.client)),
+        PJOB(spi_server_remote, (&args, &params))
         );
-
-    chanend_free((chanend_t)srv.sctx);
-
 #else
     spi_server_t srv[NUM_CLIENTS];
     struct rxc_client client_storage[NUM_CLIENTS];
@@ -102,6 +98,7 @@ void main_remote(spi_server_params_t params)
 #endif
 }
 
+#if 0
 void main_distributed(spi_server_params_t params)
 {
     printstrln("Distributed");
@@ -146,8 +143,7 @@ void main_distributed(spi_server_params_t params)
 int main(void)
 {
 
-#if 0
-    xm_os_enable_for_all_cores();
+    //xm_os_enable_for_all_cores();
     struct xm_os_control_block cb;
     xm_os_init(&cb);
 
@@ -159,14 +155,14 @@ int main(void)
         .num_slaves = NUM_SLAVES
     };
 
-    if(REMOTE)
+    //if(REMOTE)
         main_remote(params);
-    else
-        main_distributed(params);
+    //else
+       // main_distributed(params);
 
+    // Does this free the chanend for the remote version?
     xm_os_fini();
 
-#endif
     return 0;
 }
 

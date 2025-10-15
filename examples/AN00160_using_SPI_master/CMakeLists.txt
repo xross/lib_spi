@@ -10,7 +10,7 @@ set(APP_HW_TARGET       XK-EVK-XU316)
 
 set(APP_DEPENDENT_MODULES   "lib_spi" "lib_xcmm" "lib_xassert")
 
-set(SHARED_COMPILER_FLAGS         -Os -g -report -DXCORE_AI_EXPLORER=1 -save-temps)
+set(SHARED_COMPILER_FLAGS         -Os -g -report -DXCORE_AI_EXPLORER=1 )
 
 set(APP_COMPILER_FLAGS_remote           ${SHARED_COMPILER_FLAGS} -DREMOTE=1 -DNUM_CLIENTS=1)
 set(APP_COMPILER_FLAGS_remote_3         ${SHARED_COMPILER_FLAGS} -DREMOTE=1 -DNUM_CLIENTS=3)
@@ -26,28 +26,39 @@ XMOS_REGISTER_APP()
 # Table gen stuff
 
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/api.json
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/spi.json
     COMMAND ${LLVM_TBLGEN_EXECUTABLE}
-        -I${CMAKE_CURRENT_SOURCE_DIR}/../../../support/api
-        ${CMAKE_CURRENT_SOURCE_DIR}/api.td --dump-json -o ${CMAKE_CURRENT_BINARY_DIR}/api.json
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/api.td
-    COMMENT "Generating api.json using llvm-tblgen"
+    -I${XMOS_SANDBOX_DIR}/lib_xcmm/lib_xcmm/src/XCMinusMinus/support/api/
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/spi.td --dump-json -o ${CMAKE_CURRENT_BINARY_DIR}/spi.json
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/spi.td
+    COMMENT "Generating spi.json using llvm-tblgen"
 )
 
 set(GENERATED_HEADER_DIR ${CMAKE_CURRENT_LIST_DIR}/src/generated)
+file(MAKE_DIRECTORY ${GENERATED_HEADER_DIR})
 
 add_custom_command(
-    OUTPUT  gen_api.h gen_api.inc.c
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../../../genx/rpcgen_in_venv.sh
-              -os ${GENERATED_HEADER_DIR}/gen_api.inc.c
-              -oh ${GENERATED_HEADER_DIR}/gen_api.h
-              --header-name gen_api.h
-              ${CMAKE_CURRENT_BINARY_DIR}/api.json
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/api.json)
-    add_custom_target(example_rpc_simpletdrpc_gen DEPENDS gen_api.h gen_api.inc.c)
-    add_dependencies(app_an00160_remote example_rpc_simpletdrpc_gen)
+    OUTPUT  ${GENERATED_HEADER_DIR}/spi_gen.h ${GENERATED_HEADER_DIR}/spi_gen.inc.c
+    COMMAND  ${XMOS_SANDBOX_DIR}/lib_xcmm/lib_xcmm/src/XCMinusMinus/genx/rpcgen_in_venv.sh
+            -os ${GENERATED_HEADER_DIR}/spi_gen.inc.c
+            -oh ${GENERATED_HEADER_DIR}/spi_gen.h
+            --header-name spi_gen.h
+            ${CMAKE_CURRENT_BINARY_DIR}/spi.json
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/spi.json
+    COMMENT "Generating RPC stubs"
+)
+add_custom_target(app_an00160_codegen
+    DEPENDS ${GENERATED_HEADER_DIR}/spi_gen.h ${GENERATED_HEADER_DIR}/spi_gen.inc.c
+)
+add_dependencies(app_an00160_remote          app_an00160_codegen)
+add_dependencies(app_an00160_remote_3        app_an00160_codegen)
+add_dependencies(app_an00160_distributed     app_an00160_codegen)
+add_dependencies(app_an00160_distributed_3   app_an00160_codegen)
 
-target_include_directories(app_an00160_remote PRIVATE ${GENERATED_HEADER_DIR} )
+target_include_directories(app_an00160_remote PRIVATE ${GENERATED_HEADER_DIR})
+target_include_directories(app_an00160_remote_3 PRIVATE ${GENERATED_HEADER_DIR})
+target_include_directories(app_an00160_distributed PRIVATE ${GENERATED_HEADER_DIR})
+target_include_directories(app_an00160_distributed_3 PRIVATE ${GENERATED_HEADER_DIR})
 
 # End table gen stuff
 
