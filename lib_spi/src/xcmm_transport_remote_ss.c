@@ -8,6 +8,7 @@
 #include "spi_xcmm_internal.h"
 #include "transport_remote_utils.h"
 
+#if 0
 void get_mode_bits(spi_mode_t mode, unsigned *cpol, unsigned *cpha); // from spi_sync_simple.xc
 
 /* Declare underlying API */
@@ -435,3 +436,5 @@ void spi_server_distributed(void * d)
 #endif
 
 }
+
+#endif

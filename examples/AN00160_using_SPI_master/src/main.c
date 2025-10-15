@@ -11,12 +11,16 @@
 
 #include "spi_xcmm_transport.h" // main lib_spi API include. Will evenually be "spi.h"
 
+
+#include "api_gen.h"
+
 port_t p_sclk  = WIFI_CLK;
 port_t p_ss[1] = {WIFI_CS_N};
 port_t p_miso  = WIFI_MISO;
 port_t p_mosi  = WIFI_MOSI;
 port_t p_rstn  = WIFI_WUP_RST_N;
 
+#if 0
 #if NUM_CLIENTS == 1
 DECLARE_JOB(spi_server_remote, (spi_server_t, spi_server_params_t));
 #else
@@ -137,8 +141,12 @@ void main_distributed(spi_server_params_t params)
 #endif
 }
 
+#endif
+
 int main(void)
 {
+
+#if 0
     xm_os_enable_for_all_cores();
     struct xm_os_control_block cb;
     xm_os_init(&cb);
@@ -157,6 +165,8 @@ int main(void)
         main_distributed(params);
 
     xm_os_fini();
+
+#endif
     return 0;
 }
 
