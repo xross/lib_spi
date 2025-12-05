@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.21)
 include($ENV{XMOS_CMAKE_PATH}/xcommon.cmake)
 
-project(app_an00160)
+project(app_xcmm)
 
 find_program(LLVM_TBLGEN_EXECUTABLE NAMES llvm-tblgen)
 
 set(APP_HW_TARGET       XK-EVK-XU316)
 
-set(APP_DEPENDENT_MODULES   "lib_spi" "lib_xcmm" "lib_xassert")
+set(APP_DEPENDENT_MODULES   "lib_spi" "xross/lib_xcmm" "lib_xassert")
 
 set(SHARED_COMPILER_FLAGS         -Os -g -report -DXCORE_AI_EXPLORER=1 -save-temps)
 
@@ -18,8 +18,6 @@ set(APP_COMPILER_FLAGS_distributed_3    ${SHARED_COMPILER_FLAGS} -DREMOTE=0 -DNU
 
 # Set src file (so we dont glob the generated included files)
 set(APP_C_SRCS    src/main.c)
-
-
 
 set(XMOS_SANDBOX_DIR    ${CMAKE_CURRENT_LIST_DIR}/../../..)
 
@@ -32,7 +30,7 @@ XMOS_REGISTER_APP()
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/spi.json
     COMMAND ${LLVM_TBLGEN_EXECUTABLE}
-    -I${XMOS_SANDBOX_DIR}/lib_xcmm/lib_xcmm/src/XCMinusMinus/support/api/
+    -I${XMOS_SANDBOX_DIR}/lib_xcmm/lib_xcmm/src/XCMinusMinus/support/include/
         ${CMAKE_CURRENT_SOURCE_DIR}/src/spi.td --dump-json -o ${CMAKE_CURRENT_BINARY_DIR}/spi.json
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/spi.td
     COMMENT "Generating spi.json using llvm-tblgen"
@@ -51,18 +49,18 @@ add_custom_command(
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/spi.json
     COMMENT "Generating RPC stubs"
 )
-add_custom_target(app_an00160_codegen
+add_custom_target(app_xcmm_codegen
     DEPENDS ${GENERATED_HEADER_DIR}/spi_gen.h ${GENERATED_HEADER_DIR}/spi_gen.inc.c
 )
-add_dependencies(app_an00160_remote          app_an00160_codegen)
-add_dependencies(app_an00160_remote_3        app_an00160_codegen)
-add_dependencies(app_an00160_distributed     app_an00160_codegen)
-add_dependencies(app_an00160_distributed_3   app_an00160_codegen)
+add_dependencies(app_xcmm_remote          app_xcmm_codegen)
+add_dependencies(app_xcmm_remote_3        app_xcmm_codegen)
+add_dependencies(app_xcmm_distributed     app_xcmm_codegen)
+add_dependencies(app_xcmm_distributed_3   app_xcmm_codegen)
 
-target_include_directories(app_an00160_remote PRIVATE ${GENERATED_HEADER_DIR})
-target_include_directories(app_an00160_remote_3 PRIVATE ${GENERATED_HEADER_DIR})
-target_include_directories(app_an00160_distributed PRIVATE ${GENERATED_HEADER_DIR})
-target_include_directories(app_an00160_distributed_3 PRIVATE ${GENERATED_HEADER_DIR})
+target_include_directories(app_xcmm_remote PRIVATE ${GENERATED_HEADER_DIR})
+target_include_directories(app_xcmm_remote_3 PRIVATE ${GENERATED_HEADER_DIR})
+target_include_directories(app_xcmm_distributed PRIVATE ${GENERATED_HEADER_DIR})
+target_include_directories(app_xcmm_distributed_3 PRIVATE ${GENERATED_HEADER_DIR})
 
 # End table gen stuff
 

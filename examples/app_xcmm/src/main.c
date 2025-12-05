@@ -1,23 +1,135 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <platform.h>
-
 #include <print.h>
-
+#include <platform.h>
 #include <xcore/parallel.h>
 #include <xcore/channel.h>
+#include <xcore/port.h>
 #include <xcore/hwtimer.h>
-
-#include "spi_xcmm_transport.h" // main lib_spi API include. Will evenually be "spi.h"
-
-#include "spi_gen.h"
+#include "transport.h"
+#include "xm_os.h"
 
 port_t p_sclk  = WIFI_CLK;
 port_t p_ss[1] = {WIFI_CS_N};
 port_t p_miso  = WIFI_MISO;
 port_t p_mosi  = WIFI_MOSI;
 port_t p_rstn  = WIFI_WUP_RST_N;
+
+#include "spi_xcmm_transport.h" // main lib_spi API include. Will evenually be "spi.h"
+
+#pragma stackfunction 1024
+void spi_client(spi_client_t spi, size_t n)
+{
+    uint32_t addr = 10;
+    uint32_t command = 0x8002 | (addr << 12); //Read command
+
+    if (n == 0)
+    {
+        port_enable(p_rstn);
+        port_out(p_rstn, 0x2); //Take out of reset and wait
+    }
+
+    hwtimer_t t;
+    t = hwtimer_alloc();
+    hwtimer_delay(t, 300000);
+
+    for(int i = 0; i < 2; i++)
+    {
+        client_spi_begin_transaction(spi, 0, 1000, SPI_MODE_1);
+
+        uint8_t val = client_spi_transfer8(spi, command >> 8);
+
+        val = client_spi_transfer8(spi, command & 0xff);
+        uint32_t reg = client_spi_transfer32(spi, 0x00);
+
+        client_spi_end_transaction(spi, 0);
+
+        printhexln(reg << 16 | reg >> 16);
+
+        hwtimer_delay(t, 200000);
+    }
+
+#if 1
+    client_spi_set(spi, 0);
+    printf("Api state: %d\n", client_spi_get(spi));
+
+    client_spi_set(spi, 2);
+    printf("Api state: %d\n", client_spi_get(spi));
+
+    client_spi_triple(spi);
+    printf("Api state: %d\n", client_spi_get(spi));
+
+    client_spi_add_all(spi, 0x0f0000, 0x0f00, 0x0f);
+    printf("Api state: %d\n", client_spi_get(spi));
+
+    client_spi_triple(spi);
+    printf("Api state: %d\n", client_spi_get(spi));
+
+    client_spi_stop(spi);
+#endif
+
+}
+
+DECLARE_JOB(spi_client, (spi_client_t, size_t));
+DECLARE_JOB(spi_server_remote, (const spi_server_args_t*, const spi_server_params_t*));
+
+void main_remote(spi_server_params_t * params)
+{
+    struct xm_os_control_block cb;
+    xm_os_init(&cb);
+
+    spi_link_context_t transport;
+    spi_handles_t link = spi_remote_link_ctor(&transport);
+
+    spi_server_args_t args = { link.server };
+    PAR_JOBS(
+        PJOB(spi_client, (link.client, 0)),
+        PJOB(spi_server_remote, (&args, params)));
+
+    spi_remote_link_dtor(&transport);
+
+    xm_os_fini();
+}
+
+void main_distributed(void)
+{
+    struct xm_os_control_block cb;
+    xm_os_init(&cb);
+
+    long long unsigned server_stack[128 + 1];
+    struct rxc_shared_server srv_ctx;
+    rxc_init_shared_server(&srv_ctx, spi_server_distributed, &server_stack[127]);
+
+    spi_link_context_t transport;
+    spi_handles_t link = spi_distributed_link_ctor(&transport, &srv_ctx);
+
+    spi_server_args_t args = { link.server };
+    rxc_start_shared_server(&srv_ctx, &args);
+    spi_client(link.client,0);
+
+    spi_distributed_link_dtor(&transport);
+
+    xm_os_fini();
+}
+
+int main(void)
+{
+    spi_server_params_t params = {
+        .p_sclk = p_sclk,
+        .p_mosi = p_mosi,
+        .p_miso = p_miso,
+        .p_ss = p_ss,
+        .num_slaves = NUM_SLAVES
+    };
+
+    main_remote(&params);
+    //main_distributed();
+}
+
+
+
+#if 0
 
 #if NUM_CLIENTS == 1
 DECLARE_JOB(spi_server_remote, (const spi_server_args_t*, spi_server_params_t*));
@@ -173,4 +285,4 @@ int main(void)
 
     return 0;
 }
-
+#endif

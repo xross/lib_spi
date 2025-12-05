@@ -1,0 +1,16 @@
+
+
+build:
+
+from examples/app_xcmm:
+
+cmake -B build
+make -C build remote
+
+run:
+
+xsim ./bin/remote/app_xcmm_remote.xe
+
+or
+
+xrun --xscope xsim ./bin/remote/app_xcmm_remote.xe

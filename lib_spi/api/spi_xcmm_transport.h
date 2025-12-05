@@ -5,11 +5,44 @@
 
 #include "spi_gen.h"
 
-#include "transport.h"
+/** This type indicates what mode an SPI component should use */
+typedef enum spi_mode_t {
+  SPI_MODE_0, /**< SPI Mode 0 - Polarity = 0, Clock Edge = 1 */
+  SPI_MODE_1, /**< SPI Mode 1 - Polarity = 0, Clock Edge = 0 */
+  SPI_MODE_2, /**< SPI Mode 2 - Polarity = 1, Clock Edge = 0 */
+  SPI_MODE_3, /**< SPI Mode 3 - Polarity = 1, Clock Edge = 1 */
+} spi_mode_t;
+
+typedef struct {
+    spi_server_t srv;
+} spi_server_args_t;
+
+typedef struct spi_server_params_t
+{
+    port_t p_sclk;
+    port_t p_mosi;
+    port_t p_miso;
+    port_t *p_ss;
+    size_t num_slaves;
+} spi_server_params_t;
 
 #ifndef NUM_SLAVES
 #define NUM_SLAVES (1)
 #endif
+
+void spi_server_remote(const spi_server_args_t *, const spi_server_params_t *);
+
+void spi_server_distributed(const void *);
+
+
+
+#if 0
+
+#include "spi_gen.h"
+
+#include "transport.h"
+
+
 
 #ifndef NUM_CLIENTS
 #define NUM_CLIENTS (3)
@@ -26,22 +59,9 @@ typedef struct
     spi_server_t srv;
 } spi_server_args_t;
 
-typedef struct spi_server_params_t
-{
-    port_t p_sclk;
-    port_t p_mosi;
-    port_t p_miso;
-    port_t *p_ss;
-    size_t num_slaves;
-} spi_server_params_t;
 
-/** This type indicates what mode an SPI component should use */
-typedef enum spi_mode_t {
-  SPI_MODE_0, /**< SPI Mode 0 - Polarity = 0, Clock Edge = 1 */
-  SPI_MODE_1, /**< SPI Mode 1 - Polarity = 0, Clock Edge = 0 */
-  SPI_MODE_2, /**< SPI Mode 2 - Polarity = 1, Clock Edge = 0 */
-  SPI_MODE_3, /**< SPI Mode 3 - Polarity = 1, Clock Edge = 1 */
-} spi_mode_t;
+
+
 
 #if 0
 
@@ -87,4 +107,4 @@ void spi_server_distributed(void * d);
 #endif
 
 
-
+#endif
