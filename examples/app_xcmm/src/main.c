@@ -72,50 +72,48 @@ void spi_client(spi_client_t spi, size_t n)
 }
 
 DECLARE_JOB(spi_client, (spi_client_t, size_t));
-DECLARE_JOB(spi_server_remote, (const spi_server_args_t*, const spi_server_params_t*));
+DECLARE_JOB(spi_server_remote, (const spi_server_args_t*));
 
-void main_remote(spi_server_params_t * params)
+void main_remote(spi_server_args_t * args)
 {
-    struct xm_os_control_block cb;
-    xm_os_init(&cb);
-
     spi_link_context_t transport;
     spi_handles_t link = spi_remote_link_ctor(&transport);
 
-    spi_server_args_t args = { link.server };
+    //spi_server_args_t args = { link.server };
+    args->srv = link.server;
+
     PAR_JOBS(
         PJOB(spi_client, (link.client, 0)),
-        PJOB(spi_server_remote, (&args, params)));
+        PJOB(spi_server_remote, (args)));
 
     spi_remote_link_dtor(&transport);
 
-    xm_os_fini();
 }
 
-void main_distributed(void)
+void main_distributed(spi_server_args_t * args)
 {
-    struct xm_os_control_block cb;
-    xm_os_init(&cb);
-
-    long long unsigned server_stack[128 + 1];
+    long long unsigned server_stack[256 + 1];
     struct rxc_shared_server srv_ctx;
     rxc_init_shared_server(&srv_ctx, spi_server_distributed, &server_stack[127]);
 
     spi_link_context_t transport;
     spi_handles_t link = spi_distributed_link_ctor(&transport, &srv_ctx);
 
-    spi_server_args_t args = { link.server };
-    rxc_start_shared_server(&srv_ctx, &args);
+    //spi_server_args_t args = { link.server };
+    args->srv = link.server;
+    rxc_start_shared_server(&srv_ctx, args);
     spi_client(link.client,0);
 
     spi_distributed_link_dtor(&transport);
-
-    xm_os_fini();
 }
 
 int main(void)
 {
-    spi_server_params_t params = {
+    struct xm_os_control_block cb;
+    xm_os_init(&cb);
+
+    spi_server_args_t args = {
+        .srv = NULL,
         .p_sclk = p_sclk,
         .p_mosi = p_mosi,
         .p_miso = p_miso,
@@ -123,8 +121,13 @@ int main(void)
         .num_slaves = NUM_SLAVES
     };
 
-    main_remote(&params);
-    //main_distributed();
+#if REMOTE
+    main_remote(&args);
+#else
+    main_distributed(&args);
+#endif
+
+    xm_os_fini();
 }
 
 

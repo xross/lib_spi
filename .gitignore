@@ -19,6 +19,7 @@ test_results.csv
 .*.swp
 .*.swo
 .*.swn
+.*.sw*
 
 # waf build files
 .lock-waf_*

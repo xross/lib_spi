@@ -15,8 +15,14 @@ typedef enum spi_mode_t {
 
 typedef struct {
     spi_server_t srv;
+    port_t p_sclk;
+    port_t p_mosi;
+    port_t p_miso;
+    port_t *p_ss;
+    size_t num_slaves;
 } spi_server_args_t;
 
+#if 0
 typedef struct spi_server_params_t
 {
     port_t p_sclk;
@@ -25,15 +31,16 @@ typedef struct spi_server_params_t
     port_t *p_ss;
     size_t num_slaves;
 } spi_server_params_t;
+#endif
 
 #ifndef NUM_SLAVES
 #define NUM_SLAVES (1)
 #endif
 
-void spi_server_remote(const spi_server_args_t *, const spi_server_params_t *);
+void spi_server_remote(const spi_server_args_t *);
+
 
 void spi_server_distributed(const void *);
-
 
 
 #if 0

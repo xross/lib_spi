@@ -279,23 +279,21 @@ static void spi_server_impl(const struct rxc_server_vt* vt, spi_server_t srv,
 }
 
 //void spi_server_remote(const spi_server_args_t* args)
-void spi_server_remote(const spi_server_args_t* args,  const spi_server_params_t* params)
+void spi_server_remote(const spi_server_args_t* args)
 {
     spi_server_impl(&rxc_transport_remote_shared.svt, args->srv,
-    1, params->p_sclk, params->p_mosi, params->p_miso, params->p_ss, params->num_slaves);
+    1, args->p_sclk, args->p_mosi, args->p_miso, args->p_ss, args->num_slaves);
 }
 
 void spi_server_distributed(const void* d)
 {
-    //const spi_server_args_t* args = d;
-    //spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, args->srv);
+    const spi_server_args_t* args = d;
+    spi_server_impl(&rxc_transport_distributed_shared_with_client_exclusion.svt, args->srv,
+    1, args->p_sclk, args->p_mosi, args->p_miso, args->p_ss, args->num_slaves);
 }
 
 
-
 #if 0
-
-
 
 #if 0
 /* These are now generated */
