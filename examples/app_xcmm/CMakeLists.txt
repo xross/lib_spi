@@ -27,8 +27,6 @@ XMOS_REGISTER_APP()
 
 
 # Table gen stuff
-set(TD_INCLUDE_DIR ${XMOS_SANDBOX_DIR}/lib_xcmm/lib_xcmm/src/XCMinusMinus/support/include/)
-set(RPC_GEN_SCRIPT ${XMOS_SANDBOX_DIR}/lib_xcmm/lib_xcmm/src/XCMinusMinus/genx/rpcgen_in_venv.sh)
 
 # We need a dummy target to attach the generation steps to if we want them done before the main apps
 # Or we can attach to each app. Since we have multiple apps (remote, distributed, etc) sharing the same source,
@@ -38,18 +36,11 @@ set(RPC_GEN_SCRIPT ${XMOS_SANDBOX_DIR}/lib_xcmm/lib_xcmm/src/XCMinusMinus/genx/r
 # Let's create a common interface library to hold the generated headers/sources
 add_library(app_xcmm_generated_code INTERFACE)
 
-# 1. Generate JSONs from .td files
-xcmm_generate_jsons_from_td(
+# Generate both JSONs and RPC stubs using the wrapper
+xcmm_generate_interface(
     TARGET app_xcmm_generated_code
     SEARCH_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src
-    INCLUDE_DIRS ${TD_INCLUDE_DIR}
-)
-
-# 2. Generate RPC stubs from JSONs
-xcmm_generate_rpc_stubs(
-    TARGET app_xcmm_generated_code
-    GEN_SCRIPT ${RPC_GEN_SCRIPT}
-    OUT_DIR ${CMAKE_CURRENT_LIST_DIR}/src/generated
+    STUB_OUT_DIR ${CMAKE_CURRENT_LIST_DIR}/src/generated
 )
 
 # 3. Link the generated code target to the actual applications
@@ -59,5 +50,3 @@ target_link_libraries(app_xcmm_distributed PRIVATE app_xcmm_generated_code)
 target_link_libraries(app_xcmm_distributed_3 PRIVATE app_xcmm_generated_code)
 
 # End table gen stuff
-
-
